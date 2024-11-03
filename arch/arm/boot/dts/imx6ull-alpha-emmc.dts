@@ -42,7 +42,7 @@
 /dts-v1/;
 
 #include "imx6ull.dtsi"
-#include "imx6ul-14x14-evk.dtsi"
+#include "imx6ull-alpha-emmc.dtsi"
 
 / {
 	model = "Freescale i.MX6 UlltraLite 14x14 EVK Board";
