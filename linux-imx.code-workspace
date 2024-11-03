@@ -95,7 +95,7 @@
             "arch/arm/boot/dts/imx6s*":true,
             "arch/arm/boot/dts/imx6d*":true,
             "arch/arm/boot/dts/imx6ul-[a-z]*":true,
-            "arch/arm/boot/dts/imx6ull-[a-z]*":true,
+            "arch/arm/boot/dts/imx6ull-[b-z]*":true,
 		},
 	}
 }
