@@ -7,8 +7,8 @@ menu "Character devices"
 
 source "drivers/tty/Kconfig"
 
-config MY_MODULE_LOAD
-	tristate "This is my module load test!"
+config MY_HELLO
+	tristate "This is my hello_world_demo module load test!"
 	help
 	    This is a test for kernel new function
 
