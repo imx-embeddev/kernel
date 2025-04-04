@@ -21,6 +21,10 @@ BRANCH=""
 COMMIT_HASH=""
 TARGET_DIR=""
 
+SCRIPT_NAME=${0#*/}
+SCRIPT_CURRENT_PATH=${0%/*}
+SCRIPT_ABSOLUTE_PATH=`cd $(dirname ${0}); pwd`
+
 # 解析命令行参数
 while getopts "r:b:c:d:" opt; do
     case $opt in
@@ -93,20 +97,36 @@ function checkout_commit()
     }
 }
 
+function get_alpha_file()
+{
+    # find 命令
+    cd ${SCRIPT_ABSOLUTE_PATH}
+    chmod 777 build.sh
+    cp -af arch ${TARGET_DIR}
+    cp -af build.sh ${TARGET_DIR}
+}
+
 # 主执行流程
 function func_process() 
 {
     check_arguments
     check_git_installation
     prepare_repository
-    # checkout_commit
-    
-    echo -e "${GREEN}操作成功完成！当前状态：${NC}"
+
+    echo -e "${GREEN}git clone 操作成功完成！当前状态：${NC}"
+    cd ${TARGET_DIR}
+    git switch -c master
     git show --oneline -s
+    
+    # checkout_commit
+    get_alpha_file
+    echo -e "${GREEN}get_alpha_file 操作成功完成！当前状态：${NC}"
+    cd ${TARGET_DIR}
+    git status
     echo -e "${GREEN}当前目录：${NC}$(pwd)"
 }
 
 # 执行主函数
-# ./get_kernel_src.sh -r https://github.com/nxp-imx/linux-imx -b v4.19.71 -c e7d2672c66e4d3675570369bf20856296da312c4 -d ./kernel_nxp_4.19.71
+# ./get_kernel_src.sh -r https://github.com/nxp-imx/linux-imx -b v4.19.71 -c e7d2672c66e4d3675570369bf20856296da312c4 -d kernel_nxp_4.19.71
 
 func_process
