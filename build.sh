@@ -25,6 +25,7 @@ ERR="${RED}[ERR ]${CLS}"
 SCRIPT_NAME=${0#*/}
 SCRIPT_CURRENT_PATH=${0%/*}
 SCRIPT_ABSOLUTE_PATH=`cd $(dirname ${0}); pwd`
+PROJECT_ROOT=${SCRIPT_ABSOLUTE_PATH} # 工程的源码目录，一定要和编译脚本是同一个目录
 
 # Github Actions托管的linux服务器有以下用户级环境变量，系统级环境变量加上sudo好像也权限修改
 # .bash_logout  当用户注销时，此文件将被读取，通常用于清理工作，如删除临时文件。
@@ -119,33 +120,26 @@ CROSS_COMPILE_NAME=arm-linux-gnueabihf-
 DEF_CONFIG_TYPE=alpha # nxp 表示编译nxp官方原版配置文件，alpha表示编译我们自定义的配置文件
 
 # linux kernel相关
-linux_project_path=.
-linux_file_backup_path=${linux_project_path}/../linux-kernel
-imx6ull_release_img=()
+LINUX_KERNEL_BACKUP=${PROJECT_ROOT}/../linux-kernel
+RESULT_OUTPUT=image_output # 这个是把在linux内核源码中生成的zimage和设备树拷贝到这里
 
-linux_boot_path=${linux_project_path}/arch/arm/boot
-linux_dtb_path=${linux_project_path}/arch/arm/boot/dts
-linux_board_cfg_path=${linux_project_path}/arch/arm/configs
-linux_image_path=${linux_project_path}/image_output # 这个是把在linux内核源码中生成的zimage和设备树拷贝到这里
-linux_img_name=zImage
-linux_curconfig_name=.config
+COMPILE_PLATFORM=local # local：非githubaction自动打包，githubaction：githubaction自动打包
 
-manu_func_ena=1 # 手动选择功能
 # 脚本运行参数处理
 echo "There are $# parameters: $@"
-while getopts "a:t:" arg #选项后面的冒号表示该选项需要参数
+while getopts "p:t:" arg #选项后面的冒号表示该选项需要参数
     do
         case ${arg} in
+            p)
+                # echo "a's arg:$OPTARG"     # 参数存在$OPTARG中
+                if [ $OPTARG == "1" ];then # 使用NXP官方的默认配置文件
+                    COMPILE_PLATFORM=githubaction
+                fi
+                ;;
             t)
                 # echo "a's arg:$OPTARG"     # 参数存在$OPTARG中
                 if [ $OPTARG == "0" ];then # 使用NXP官方的默认配置文件
                     DEF_CONFIG_TYPE=nxp
-                fi
-                ;;
-            a)
-                # echo "a's arg:$OPTARG"     # 参数存在$OPTARG中
-                if [ $OPTARG == "1" ];then # 使用NXP官方的默认配置文件
-                    manu_func_ena=0
                 fi
                 ;;
             ?)  #当有不认识的选项的时候arg为?
@@ -158,45 +152,62 @@ while getopts "a:t:" arg #选项后面的冒号表示该选项需要参数
 # 可变参数定义，主要是区分开发板
 # ./build.sh 0
 if [ ${DEF_CONFIG_TYPE} == "nxp" ];then
-linux_dtb_name=imx6ull-14x14-evk.dtb
-linux_board_cfg=imx_v6_v7_defconfig
+BOARD_DEVICE_TREE=imx6ull-14x14-evk
+BOARD_DTB_FILE=imx6ull-14x14-evk.dtb
+BOARD_DEFCONFIG=imx_v6_v7_defconfig
 else
 # ./build.sh 1
-linux_dtb_name=imx6ull-alpha-emmc.dtb
-linux_board_cfg=imx_alpha_emmc_defconfig
+BOARD_DEVICE_TREE=imx6ull-alpha-emmc
+BOARD_DTB_FILE=imx6ull-alpha-emmc.dtb
+BOARD_DEFCONFIG=imx_alpha_emmc_defconfig
 fi
-linux_target=(${linux_boot_path}/${linux_img_name}
-              ${linux_dtb_path}/${linux_dtb_name})
 
-imx6ull_release_img[0]=${linux_project_path}/${linux_target[0]}
-imx6ull_release_img[1]=${linux_project_path}/${linux_target[1]}
+RESULT_FILE=(arch/arm/boot/zImage
+             arch/arm/boot/dts/${BOARD_DTB_FILE})
 
 function clean_project()
 {
+    if [ ! -d "${PROJECT_ROOT}/../imx6ull-kernel" ];then
+        echo "${PROJECT_ROOT}/../imx6ull-kernel 不存在......"
+        exit 0
+    fi
+    cd ${PROJECT_ROOT}/../imx6ull-kernel
+
+    if [ -d "${RESULT_OUTPUT}" ];then
+        rm -rvf  ${RESULT_OUTPUT}
+    fi
+
     #make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- distclean
     make ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} distclean
 }
 
 function record_kernel_file_update()
 {
+    if [ ! -d "${PROJECT_ROOT}/../imx6ull-kernel" ];then
+        echo "${PROJECT_ROOT}/../imx6ull-kernel 不存在......"
+        exit 0
+    fi
+    cd ${PROJECT_ROOT}/../imx6ull-kernel
+    echo -e "${PINK}current path         :$(pwd)${CLS}"
+    echo -e "${PINK}BOARD_DEFCONFIG      :${BOARD_DEFCONFIG}${CLS}"
+
     # 备份目录
-    if [ ! -d "${linux_file_backup_path}" ];then
-        mkdir -p ${linux_file_backup_path}
+    if [ ! -d "${LINUX_KERNEL_BACKUP}" ];then
+        mkdir -p ${LINUX_KERNEL_BACKUP}
     fi
 
     # 设备树相关文件
-    if [ ! -d "${linux_file_backup_path}/arch/arm/boot/dts" ];then
-        mkdir -p ${linux_file_backup_path}/arch/arm/boot/dts
+    if [ ! -d "${LINUX_KERNEL_BACKUP}/arch/arm/boot/dts" ];then
+        mkdir -p ${LINUX_KERNEL_BACKUP}/arch/arm/boot/dts
     fi
-    cp -pvf ${linux_project_path}/arch/arm/boot/dts/imx6ull-alpha-emmc.dts ${linux_file_backup_path}/arch/arm/boot/dts
-    cp -pvf ${linux_project_path}/arch/arm/boot/dts/imx6ull-alpha-emmc.dtsi ${linux_file_backup_path}/arch/arm/boot/dts
+    cp -pvf arch/arm/boot/dts/${BOARD_DEVICE_TREE}.dts ${LINUX_KERNEL_BACKUP}/arch/arm/boot/dts
+    cp -pvf arch/arm/boot/dts/${BOARD_DEVICE_TREE}.dtsi ${LINUX_KERNEL_BACKUP}/arch/arm/boot/dts
 
     # 配置文件
-    if [ ! -d "${linux_file_backup_path}/arch/arm/configs" ];then
-        mkdir -p ${linux_file_backup_path}/arch/arm/configs
+    if [ ! -d "${LINUX_KERNEL_BACKUP}/arch/arm/configs" ];then
+        mkdir -p ${LINUX_KERNEL_BACKUP}/arch/arm/configs
     fi
-    cp -pvf ${linux_image_path}/${linux_board_cfg} ${linux_file_backup_path}/arch/arm/configs/
-
+    cp -pvf ${RESULT_OUTPUT}/${BOARD_DEFCONFIG} ${LINUX_KERNEL_BACKUP}/arch/arm/configs/
     # 源文件相关备份
 }
 
@@ -218,58 +229,66 @@ function record_kernel_file_update()
 
 function build_linux_project()
 {
+    if [ ! -d "${PROJECT_ROOT}/../imx6ull-kernel" ];then
+        echo "${PROJECT_ROOT}/../imx6ull-kernel 不存在......"
+        exit 0
+    fi
+    cd ${PROJECT_ROOT}/../imx6ull-kernel
+    echo -e "${PINK}current path         :$(pwd)${CLS}"
+    echo -e "${PINK}BOARD_DEFCONFIG      :${BOARD_DEFCONFIG}${CLS}"
+
     get_start_time
     # $0是脚本的名称，若是给函数传参，$1 表示跟在函数名后的第一个参数
     echo "build_linux_project有 $# 个参数:$@"
-    cd ${linux_project_path}
-
-    echo -e ${PINK}"current path:$(pwd)"${CLS}
     local board_defconfig_name=$1
-    
-    # 每次编译时间太长，不会清理后编译
+
+    # 1. 清理工程，但是每次编译时间太长，不会清理后编译
+    # 2. 配置linux内核
     # 默认配置文件只需要首次执行，后续执行会覆盖掉后来修改的配置，除非每次都更新默认配置文件
     echo -e "${INFO}正在配置编译选项(board_defconfig_name=${board_defconfig_name})..."
     # make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_alpha_emmc_defconfig
     make ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} ${board_defconfig_name}
-
+    # 3. 编译linux内核
     echo -e "${INFO}正在编译工程(board_defconfig_name=${board_defconfig_name})..."
     # make V=0 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- all -j16
     make V=0 ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} all -j16
 
-    for temp in ${linux_target[@]}
+    # 4.检查成果物
+    for temp in ${RESULT_FILE[@]}
     do
-        if [ ! -f "${linux_target}" ];then
+        if [ ! -f "${RESULT_FILE}" ];then
             echo -e "${ERR}${temp} 编译失败,请检查后重试"
             continue
         else
             echo -e "${INFO}${temp} 编译成功."
         fi
-        if [ ! -d "${linux_image_path}" ];then
-            mkdir -p ${linux_image_path}
+        if [ ! -d "${RESULT_OUTPUT}" ];then
+            mkdir -p ${RESULT_OUTPUT}
         fi
-        cp -pvf ${temp} ${linux_image_path}
+        cp -pvf ${temp} ${RESULT_OUTPUT}
     done
-    cp -pvf ${linux_curconfig_name} ${linux_image_path}/${board_defconfig_name}
+
+    # 5.生成默认配置文件
+    echo -e "${INFO}正在编译工程(board_defconfig_name=${board_defconfig_name})..."
+    # make V=0 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- all -j16
+    make V=0 ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} savedefconfig
+    if [ ! -f "defconfig" ];then
+        echo -e "${ERR}defconfig 不存在,请检查后重试"
+    else
+        cp -pvf defconfig ${RESULT_OUTPUT}/${board_defconfig_name}
+    fi
+    
     get_end_time
     get_execute_time
 }
 
-function echo_menu()
+function get_kernel_source_code()
 {
-    echo "================================================="
-	echo -e "${GREEN}               build project ${CLS}"
-	echo -e "${GREEN}                by @苏木    ${CLS}"
-	echo "================================================="
-    echo -e "${PINK}current path         :$(pwd)${CLS}"
-    echo -e "${PINK}SCRIPT_CURRENT_PATH  :${SCRIPT_CURRENT_PATH}${CLS}"
-    echo -e "${PINK}ARCH_NAME            :${ARCH_NAME}${CLS}"
-    echo -e "${PINK}CROSS_COMPILE_NAME   :${CROSS_COMPILE_NAME}${CLS}"
-    echo -e "${PINK}linux_dtb_name       :${linux_dtb_name}${CLS}"
-    echo -e "${PINK}linux_board_cfg      :${linux_board_cfg}${CLS}"
-    echo ""
-    echo -e "* [0] 编译linux kernel"
-    echo -e "* [1] 同步linux内核文件的修改"
-    echo "================================================="
+    chmod 777 get_kernel_src.sh
+    ./get_kernel_src.sh -r https://github.com/nxp-imx/linux-imx \
+                        -b v4.19.71 \
+                        -c e7d2672c66e4d3675570369bf20856296da312c4 \
+                        -d ../kernel_nxp_4.19.71
 }
 
 function source_env_info()
@@ -288,18 +307,138 @@ function source_env_info()
 
 }
 
+function github_actions_build()
+{
+    if [ ! -d "${PROJECT_ROOT}/../kernel_nxp_4.19.71" ];then
+        echo "${PROJECT_ROOT}/../kernel_nxp_4.19.71 不存在......"
+        exit 0
+    fi
+    cd ${PROJECT_ROOT}/../kernel_nxp_4.19.71
+    echo -e "${PINK}current path         :$(pwd)${CLS}"
+    echo -e "${PINK}BOARD_DEFCONFIG      :${BOARD_DEFCONFIG}${CLS}"
+
+    get_start_time
+    # 设置环境变量
+    source_env_info
+    
+    # $0是脚本的名称，若是给函数传参，$1 表示跟在函数名后的第一个参数
+    echo "build_linux_project有 $# 个参数:$@"
+    local board_defconfig_name=$1
+
+    # 1. 清理工程，但是每次编译时间太长，不会清理后编译
+    make ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} distclean > make.log
+
+    # 2. 配置linux内核
+    # 默认配置文件只需要首次执行，后续执行会覆盖掉后来修改的配置，除非每次都更新默认配置文件
+    echo -e "${INFO}正在配置编译选项(board_defconfig_name=${board_defconfig_name})..."
+    # make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_alpha_emmc_defconfig
+    make ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} ${board_defconfig_name} >> make.log
+    # 3. 编译linux内核
+    echo -e "${INFO}正在编译工程(board_defconfig_name=${board_defconfig_name})..."
+    # make V=0 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- all -j16
+    make V=0 ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} all -j16 >> make.log
+
+    # 4.检查成果物
+    for temp in ${RESULT_FILE[@]}
+    do
+        if [ ! -f "${RESULT_FILE}" ];then
+            echo -e "${ERR}${temp} 编译失败,请检查后重试"
+            continue
+        else
+            echo -e "${INFO}${temp} 编译成功."
+        fi
+        if [ ! -d "${RESULT_OUTPUT}" ];then
+            mkdir -p ${RESULT_OUTPUT}
+        fi
+        cp -pvf ${temp} ${RESULT_OUTPUT}
+    done
+
+    # 5.生成默认配置文件
+    echo -e "${INFO}正在编译工程(board_defconfig_name=${board_defconfig_name})..."
+    # make V=0 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- all -j16
+    make V=0 ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} savedefconfig
+    if [ ! -f "defconfig" ];then
+        echo -e "${ERR}defconfig 不存在,请检查后重试"
+    else
+        cp -pvf defconfig ${RESULT_OUTPUT}/${board_defconfig_name}
+    fi
+    echo "📁 日志文件: $(realpath make.log)"
+
+    # 开始判断并打包文件
+    # 获取父目录绝对路径
+    parent_dir=$(dirname "$(realpath "${RESULT_OUTPUT}")")
+    # 判断是否是 Git 仓库并获取版本号
+    if git -C "$parent_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        version=$(git -C "$parent_dir" rev-parse --short HEAD)
+    else
+        version="unknown"
+    fi
+    # 生成时间戳（格式：年月日时分秒）
+    timestamp=$(date +%Y%m%d%H%M%S)
+    # 设置输出文件名
+    subdir="kernel-${timestamp}-${version}"
+    output_file="${RESULT_OUTPUT}/${subdir}.tar.bz2"
+
+    # 打包压缩文件
+    echo "正在打包文件到 ${output_file} ..."
+    # 这个文件解压后直接就是文件
+    #tar -cjf "${output_file}" -C "${RESULT_OUTPUT}" . 
+    # 这个命令解压后会存在一级目录
+    tar -cjf "${output_file}" \
+        --transform "s|^|${subdir}/|" \
+        -C "${RESULT_OUTPUT}" .
+    # 验证压缩结果
+    if [ -f "$output_file" ]; then
+        echo "打包成功！文件结构验证："
+        tar -tjf "$output_file" | head -n 5
+        echo -e "\n生成文件："
+        ls -lh "$output_file"
+    else
+        echo "错误：文件打包失败"
+        exit 1
+    fi
+
+    get_end_time
+    get_execute_time
+}
+
+function echo_menu()
+{
+    echo "================================================="
+	echo -e "${GREEN}               build project ${CLS}"
+	echo -e "${GREEN}                by @苏木    ${CLS}"
+	echo "================================================="
+    echo -e "${PINK}current path         :$(pwd)${CLS}"
+    echo -e "${PINK}SCRIPT_CURRENT_PATH  :${SCRIPT_CURRENT_PATH}${CLS}"
+    echo -e "${PINK}ARCH_NAME            :${ARCH_NAME}${CLS}"
+    echo -e "${PINK}CROSS_COMPILE_NAME   :${CROSS_COMPILE_NAME}${CLS}"
+    echo -e "${PINK}BOARD_DTB_FILE       :${BOARD_DTB_FILE}${CLS}"
+    echo -e "${PINK}BOARD_DEFCONFIG      :${BOARD_DEFCONFIG}${CLS}"
+    echo ""
+    echo -e "* [0] 编译linux kernel"
+    echo -e "* [1] 清理linux kernel工程"
+    echo -e "* [2] 同步linux内核文件的修改"
+    echo -e "* [4] github actions编译工程并发布"
+    echo "================================================="
+}
+
 function func_process()
 {
-    if [ ${manu_func_ena} == '1' ];then
-	read -p "请选择功能,默认选择0:" choose
+    if [ ${COMPILE_PLATFORM} == 'githubaction' ];then
+    choose=4
     else
-    source_env_info
-    choose=0
+    read -p "请选择功能,默认选择0:" choose
     fi
+
 	case "${choose}" in
-		"0") build_linux_project ${linux_board_cfg};;
-		"1") record_kernel_file_update;;
-		*) build_linux_project ${linux_board_cfg};;
+		"0") build_linux_project ${BOARD_DEFCONFIG};;
+		"1") clean_project ${BOARD_DEFCONFIG};;
+		"2") record_kernel_file_update;;
+		"4") 
+            get_kernel_source_code
+            github_actions_build ${BOARD_DEFCONFIG}
+            ;;
+		*) build_linux_project ${BOARD_DEFCONFIG};;
 	esac
 }
 
