@@ -334,7 +334,7 @@ function github_actions_build()
     # make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_alpha_emmc_defconfig
     make ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} ${board_defconfig_name} >> make.log
     # 3. 编译linux内核
-    echo -e "${INFO}正在编译工程(board_defconfig_name=${board_defconfig_name})..."
+    echo -e "${INFO}正在编译工程(board_defconfig_name=${board_defconfig_name}), 大约需要7分钟..."
     # make V=0 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- all -j16
     make V=0 ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} all -j16 >> make.log
 
@@ -363,7 +363,7 @@ function github_actions_build()
         cp -pvf defconfig ${RESULT_OUTPUT}/${board_defconfig_name}
     fi
     echo "📁 日志文件: $(realpath make.log)"
-
+    cp -pvf make.log ${RESULT_OUTPUT}/kernel_make.log
     # 开始判断并打包文件
     # 获取父目录绝对路径
     #parent_dir=$(dirname "$(realpath "${SCRIPT_ABSOLUTE_PATH}")") # 这个是获取上一级目录的
