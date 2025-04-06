@@ -320,7 +320,7 @@ function github_actions_build()
     get_start_time
     # 设置环境变量
     source_env_info
-    
+
     # $0是脚本的名称，若是给函数传参，$1 表示跟在函数名后的第一个参数
     echo "build_linux_project有 $# 个参数:$@"
     local board_defconfig_name=$1
@@ -366,7 +366,8 @@ function github_actions_build()
 
     # 开始判断并打包文件
     # 获取父目录绝对路径
-    parent_dir=$(dirname "$(realpath "${RESULT_OUTPUT}")")
+    #parent_dir=$(dirname "$(realpath "${SCRIPT_ABSOLUTE_PATH}")") # 这个是获取上一级目录的
+    parent_dir=$(realpath "${SCRIPT_ABSOLUTE_PATH}")
     # 判断是否是 Git 仓库并获取版本号
     if git -C "$parent_dir" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         version=$(git -C "$parent_dir" rev-parse --short HEAD)
