@@ -124,10 +124,10 @@ LINUX_KERNEL_BACKUP=${PROJECT_ROOT}/../linux-kernel
 RESULT_OUTPUT=image_output # 这个是把在linux内核源码中生成的zimage和设备树拷贝到这里
 
 COMPILE_PLATFORM=local # local：非githubaction自动打包，githubaction：githubaction自动打包
-
+COMPILE_MODE=0         # 0,清除工程后编译，1,不清理直接编译
 # 脚本运行参数处理
 echo "There are $# parameters: $@"
-while getopts "p:t:" arg #选项后面的冒号表示该选项需要参数
+while getopts "p:t:m" arg #选项后面的冒号表示该选项需要参数
     do
         case ${arg} in
             p)
@@ -140,6 +140,11 @@ while getopts "p:t:" arg #选项后面的冒号表示该选项需要参数
                 # echo "a's arg:$OPTARG"     # 参数存在$OPTARG中
                 if [ $OPTARG == "0" ];then # 使用NXP官方的默认配置文件
                     DEF_CONFIG_TYPE=nxp
+                fi
+                ;;
+            m)
+                if [ $OPTARG == "1" ];then # 使用NXP官方的默认配置文件
+                    COMPILE_MODE=1
                 fi
                 ;;
             ?)  #当有不认识的选项的时候arg为?
@@ -167,12 +172,6 @@ RESULT_FILE=(arch/arm/boot/zImage
 
 function clean_project()
 {
-    if [ ! -d "${PROJECT_ROOT}/../imx6ull-kernel" ];then
-        echo "${PROJECT_ROOT}/../imx6ull-kernel 不存在......"
-        exit 0
-    fi
-    cd ${PROJECT_ROOT}/../imx6ull-kernel
-
     if [ -d "${RESULT_OUTPUT}" ];then
         rm -rvf  ${RESULT_OUTPUT}
     fi
@@ -187,6 +186,7 @@ function record_kernel_file_update()
         echo "${PROJECT_ROOT}/../imx6ull-kernel 不存在......"
         exit 0
     fi
+
     cd ${PROJECT_ROOT}/../imx6ull-kernel
     echo -e "${PINK}current path         :$(pwd)${CLS}"
     echo -e "${PINK}BOARD_DEFCONFIG      :${BOARD_DEFCONFIG}${CLS}"
@@ -203,11 +203,12 @@ function record_kernel_file_update()
     cp -pvf arch/arm/boot/dts/${BOARD_DEVICE_TREE}.dts ${LINUX_KERNEL_BACKUP}/arch/arm/boot/dts
     cp -pvf arch/arm/boot/dts/${BOARD_DEVICE_TREE}.dtsi ${LINUX_KERNEL_BACKUP}/arch/arm/boot/dts
 
-    # 配置文件
+    # 配置文件,通过make savedefconfig 由.config文件生成的xxx_defconfig文件，两个文件都备份一遍
     if [ ! -d "${LINUX_KERNEL_BACKUP}/arch/arm/configs" ];then
         mkdir -p ${LINUX_KERNEL_BACKUP}/arch/arm/configs
     fi
     cp -pvf ${RESULT_OUTPUT}/${BOARD_DEFCONFIG} ${LINUX_KERNEL_BACKUP}/arch/arm/configs/
+    cp -pvf .config ${LINUX_KERNEL_BACKUP}
     # 源文件相关备份
 }
 
@@ -229,25 +230,36 @@ function record_kernel_file_update()
 
 function build_linux_project()
 {
+    # 获取配置文件名称 $0是脚本的名称，若是给函数传参，$1 表示跟在函数名后的第一个参数
+    echo "build_linux_project有 $# 个参数:$@"
+    local board_defconfig_name=$1
+
+    # 判断源码目录是否存在
     if [ ! -d "${PROJECT_ROOT}/../imx6ull-kernel" ];then
         echo "${PROJECT_ROOT}/../imx6ull-kernel 不存在......"
         exit 0
     fi
+
+    # 进入源码目录并打印路径
     cd ${PROJECT_ROOT}/../imx6ull-kernel
     echo -e "${PINK}current path         :$(pwd)${CLS}"
     echo -e "${PINK}BOARD_DEFCONFIG      :${BOARD_DEFCONFIG}${CLS}"
 
-    get_start_time
-    # $0是脚本的名称，若是给函数传参，$1 表示跟在函数名后的第一个参数
-    echo "build_linux_project有 $# 个参数:$@"
-    local board_defconfig_name=$1
+    # 判断成果物目录是否存在，并且是否是增量编译,成果物目录存在且为全编译的时候需要清除之前的文件
+    if [ -d "${RESULT_OUTPUT}" ] && [ "$COMPILE_MODE" != "1" ];then # 使用NXP官方的默认配置文件
+        echo -e "${INFO}正在清理工程文件..."
+        # 1. 清理工程，但是每次编译时间太长，不会清理后编译
+        clean_project
 
-    # 1. 清理工程，但是每次编译时间太长，不会清理后编译
-    # 2. 配置linux内核
-    # 默认配置文件只需要首次执行，后续执行会覆盖掉后来修改的配置，除非每次都更新默认配置文件
-    echo -e "${INFO}正在配置编译选项(board_defconfig_name=${board_defconfig_name})..."
-    # make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_alpha_emmc_defconfig
-    make ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} ${board_defconfig_name}
+        # 2. 配置linux内核
+        # 默认配置文件只需要首次执行，后续执行会覆盖掉后来修改的配置，除非每次都更新默认配置文件
+        echo -e "${INFO}正在配置编译选项(board_defconfig_name=${board_defconfig_name})..."
+        # make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- imx_alpha_emmc_defconfig
+        make ARCH=${ARCH_NAME} CROSS_COMPILE=${CROSS_COMPILE_NAME} ${board_defconfig_name}
+    fi
+
+    get_start_time
+    
     # 3. 编译linux内核
     echo -e "${INFO}正在编译工程(board_defconfig_name=${board_defconfig_name})..."
     # make V=0 ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- all -j16
