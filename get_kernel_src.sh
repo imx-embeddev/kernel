@@ -103,6 +103,7 @@ function get_alpha_file()
     cd ${SCRIPT_ABSOLUTE_PATH}
     chmod 777 build.sh
     cp -af arch ${TARGET_DIR}
+    cp -af drivers ${TARGET_DIR}
     cp -af build.sh ${TARGET_DIR}
 }
 
