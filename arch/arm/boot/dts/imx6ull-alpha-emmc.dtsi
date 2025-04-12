@@ -68,7 +68,8 @@
 	};
 
 	panel {
-		compatible = "innolux,at043tn24";
+		/* compatible = "innolux,at043tn24"; */
+        	compatible = "ATK-MD0430R-800480";
 		backlight = <&backlight_display>;
 
 		port {

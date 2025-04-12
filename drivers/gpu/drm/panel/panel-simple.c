@@ -1179,6 +1179,31 @@ static const struct panel_desc innolux_at043tn24 = {
 	.bus_flags = DRM_BUS_FLAG_DE_HIGH | DRM_BUS_FLAG_PIXDATA_POSEDGE,
 };
 
+static const struct drm_display_mode atk_mc0430r_800x480_mode = {
+	.clock = 31000,               // khz
+	.hdisplay = 800,              // 有效显示水平像素数量
+	.hsync_start = 800 + 40,      // 水平同步开始，hdisplay+HFP
+	.hsync_end = 800 + 40 + 48,   // 水平同步结束 hdisplay + HFP + HSYNC width(HPW)
+	.htotal = 800 + 40 + 48 + 88, // 水平总像素，对应hdisplay + HFP + HSYNC width + HBP
+	.vdisplay = 480,              // 垂直显示像素
+	.vsync_start = 480 + 13,      // 垂直同步开始，对应vdispay + VFP
+	.vsync_end = 480 + 13 + 3,    // 垂直像素结束，对应vdisplay + VFP + VSYNC width(VPW)
+	.vtotal = 480 + 13 + 3 + 32,  // 垂直总像素，对应vdisplay + VFP + VSYNC width + VBP
+	.flags = DRM_MODE_FLAG_NHSYNC | DRM_MODE_FLAG_NVSYNC,
+};
+
+static const struct panel_desc atk_mc0430r_800x480 = {
+	.modes = &atk_mc0430r_800x480_mode,
+	.num_modes = 1,
+	.bpc = 8,
+	.size = {
+		.width = 95,
+		.height = 54,
+	},
+	.bus_format = MEDIA_BUS_FMT_RGB888_1X24,
+	.bus_flags = DRM_BUS_FLAG_DE_HIGH | DRM_BUS_FLAG_PIXDATA_POSEDGE,
+};
+
 static const struct drm_display_mode innolux_at070tn92_mode = {
 	.clock = 33333,
 	.hdisplay = 800,
@@ -2424,6 +2449,9 @@ static const struct of_device_id platform_of_match[] = {
 		.compatible = "innolux,at043tn24",
 		.data = &innolux_at043tn24,
 	}, {
+		.compatible = "ATK-MD0430R-800480",
+		.data = &atk_mc0430r_800x480
+	},{
 		.compatible = "innolux,at070tn92",
 		.data = &innolux_at070tn92,
 	}, {
