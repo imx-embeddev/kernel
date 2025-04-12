@@ -127,7 +127,7 @@ COMPILE_PLATFORM=local # local：非githubaction自动打包，githubaction：gi
 COMPILE_MODE=0         # 0,清除工程后编译，1,不清理直接编译
 # 脚本运行参数处理
 echo "There are $# parameters: $@"
-while getopts "p:t:m" arg #选项后面的冒号表示该选项需要参数
+while getopts "p:t:m:" arg #选项后面的冒号表示该选项需要参数
     do
         case ${arg} in
             p)
