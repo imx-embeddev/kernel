@@ -102,6 +102,19 @@ function get_alpha_file()
     # find 命令
     cd ${SCRIPT_ABSOLUTE_PATH}
     chmod 777 build.sh
+    echo "current path         :$(pwd)"
+    ls -alh
+
+    # 删除目标源码目录的.git目录
+    echo "rm -rf ${TARGET_DIR}/.git"
+    rm -rf ${TARGET_DIR}/.git
+
+    # 拷贝自己的存放了linux部分源码目录的.git目录，这是为了在内核中获取我们自己记录的git版本信息
+    echo "cp -af ${SCRIPT_ABSOLUTE_PATH}/.git ${TARGET_DIR}"
+    cp -af ${SCRIPT_ABSOLUTE_PATH}/.git ${TARGET_DIR}
+
+    # 拷贝自己修改的源码文件
+    echo "cp -af arch drivers build.sh ${TARGET_DIR}"
     cp -af arch ${TARGET_DIR}
     cp -af drivers ${TARGET_DIR}
     cp -af build.sh ${TARGET_DIR}
@@ -123,7 +136,7 @@ function func_process()
     get_alpha_file
     echo -e "${GREEN}get_alpha_file 操作成功完成！当前状态：${NC}"
     cd ${TARGET_DIR}
-    git status
+    git log -2 
     echo -e "${GREEN}当前目录：${NC}$(pwd)"
 }
 
