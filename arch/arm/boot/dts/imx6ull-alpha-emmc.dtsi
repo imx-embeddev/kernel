@@ -32,6 +32,15 @@
 		gpio = <&gpio1 9 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
+    //eMMC复位引脚 SD2_nRST --> GPIO4_IO10
+    reg_sd2_vmmc: regulator-sd2-vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "VSD_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio4 10 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 
 	sound {
 		compatible = "simple-audio-card";
@@ -69,7 +78,7 @@
 
 	panel {
 		/* compatible = "innolux,at043tn24"; */
-        	compatible = "ATK-MD0430R-800480";
+        compatible = "ATK-MD0430R-800480";
 		backlight = <&backlight_display>;
 
 		port {
@@ -255,6 +264,7 @@
 	no-1-8-v;
 	keep-power-in-suspend;
 	wakeup-source;
+    vmmc-supply = <&reg_sd2_vmmc>;
 	status = "okay";
 };
 
