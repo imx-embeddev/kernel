@@ -1,0 +1,36 @@
+#ifdef OUTSIDE_KERNEL
+#include "compile.h"
+#include "utsrelease.h"
+#else
+#include "../../../../include/generated/compile.h"
+#include "../../../../include/generated/utsrelease.h"
+#endif
+
+#define DTB_VERSION "1.0.1"
+
+/**
+ * @node      dtb_ver
+ * @note      设备树版本信息节点,DTS使用的宏代表的字符串的话，好像不能带空格，不然会报错
+ * @property  kernel-ver    : 使用的内核版本的版本号+设备树所在目录的git版本号，这里值的格式是 4.19.71-gaa72223d9
+ *                              4.19.71     —— 表示内核的版本号
+ *                              -gaa72223d9 —— 表示git版本号，这个分两种情况
+ *                                             在内核中编译时，与内核的版本号相同,在内核外使用dtc工具编译，这里是设备树所在仓库的版本号
+ * @property  dtb-ver       : 设备树源码的版本号
+ * @property  dtb-build-user: 编译设备树的主机的用户名 ${USER}
+ * @property  dtb-build-time: 
+ */
+
+/ {
+    dtb_ver {
+        compatible = "dtb-ver";
+        kernel-ver = UTS_RELEASE;
+        dtb-ver = DTB_VERSION;
+        dtb-build-user = LINUX_COMPILE_BY;
+        #ifdef DTB_GIT_VERSION
+        dtb-git-hash = DTB_GIT_VERSION;
+        #else
+        dtb-git-hash = "unknown";
+        #endif
+        dtb-build-time = UTS_VERSION;
+    };
+};
