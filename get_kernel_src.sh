@@ -63,6 +63,7 @@ function prepare_repository()
             exit 1;
         }
     else
+        # git clone -b <tag_name> <repository_url> <custom_dir>
         echo -e "${GREEN}正在克隆仓库到 $TARGET_DIR ...${NC}"
         git clone -b ${BRANCH} --depth=1 "$REPO_URL" "$TARGET_DIR" || {
             echo -e "${RED}克隆仓库失败${NC}";
