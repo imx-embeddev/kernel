@@ -102,7 +102,6 @@ function get_alpha_file()
 {
     # find 命令
     cd ${SCRIPT_ABSOLUTE_PATH}
-    chmod 777 build.sh
     echo "current path         :$(pwd)"
     ls -alh
 
@@ -115,10 +114,9 @@ function get_alpha_file()
     cp -af ${SCRIPT_ABSOLUTE_PATH}/.git ${TARGET_DIR}
 
     # 拷贝自己修改的源码文件
-    echo "cp -af arch drivers build.sh ${TARGET_DIR}"
-    cp -af arch ${TARGET_DIR}
-    cp -af drivers ${TARGET_DIR}
-    cp -af build.sh ${TARGET_DIR}
+    echo "cp -af arch drivers ${TARGET_DIR}"
+    cp -avf arch ${TARGET_DIR}
+    cp -avf drivers ${TARGET_DIR}
 }
 
 # 主执行流程
